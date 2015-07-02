@@ -67,7 +67,8 @@ int Count;
 	 TURNLEFT=1014,
 	 TURNRIGHT=1015,
 	 ONLINEGAIT=1016,
-	 TOSTANDSTILL=1017
+	 TOSTANDSTILL=1017,
+	 TORQUETEST=1018,
  };
 
 
@@ -355,13 +356,12 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 
 	    	for(int i=0;i<18;i++)
 	    	{
-	    		msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),i*5);
-	    		msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),i*5+1);
-		    	msgSend.CopyAt(&machineData.feedbackData[0].Position,sizeof(int),i*5+2);
-		    	msgSend.CopyAt(&machineData.feedbackData[0].Position,sizeof(int),i*5+3);
-		    	msgSend.CopyAt(&machineData.feedbackData[0].Position,sizeof(int),i*5+4);
+	    		msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),i*5*sizeof(int));
+	    		msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),(i*5+1)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Position,sizeof(int),(i*5+2)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Velocity,sizeof(int),(i*5+3)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Torque,sizeof(int),(i*5+4)*sizeof(int));
 	    	}
-
 
 		 //     rt_printf("ty give msg id %d data length %d \n",msgSend.GetMsgID(),msgSend.GetLength());
  		//  rt_machine_msg.SetMsgID(1000);
@@ -370,127 +370,6 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 	         cs.RT_PostMsg(msgSend);
 	}
 
-
-  	if(tg_count==2000)
-	{
- 	 /*  ofstream input_static;
-	    input_static.open("./static.txt");
-
-	 	CTrotGait trot;
-	 	double foot_pos[18];
-	 	double screw_pos[18];
-	 	double body[6]={0, 0, 0, 0, 0, 0};
-
-	 	trot.LoadRobot();
-	 	double a,b,c,d,e;
-	 	a=1;
-	 	b=3;
-	 	c=0.1;
-	 	d=0.1;
-	 	e=0.5;
-	 	trot.SetGaitParas(a,b,c,d,e);
-	 	int N=1000*(trot.m_raiseMidLegsTime*2+trot.m_period*2);
-	 	cout<<"gait length"<<N<<endl;
-	 	for(int i=1;i<=N;i++)
-	 	{
-	 		trot.CalPee(i,foot_pos,body);
-	 		trot.CalPin(screw_pos);
-
-
-	 		input_static<<foot_pos[0]<<"\t";
-	 		input_static<<foot_pos[1]<<"\t";
-	 		input_static<<foot_pos[2]<<"\t";
-
-	 		input_static<<foot_pos[12]<<"\t";
-	 		input_static<<foot_pos[13]<<"\t";
-	 		input_static<<foot_pos[14]<<"\t";
-
-	 		input_static<<body[3]<<"\t";
-	 		input_static<<body[4]<<"\t";
-	 		input_static<<body[5]<<"\t";
-
-
-
-	 		input_static<<endl;
-
-	 	}
-	 	input_static.close();*/
-
-
-
-
- 	  /*   ofstream input;
- 	    input.open("./input.txt");
-
-		 for(int i=0;i<8000;i++)
-		{
-			input<<i<<"\t";
- 			gait.online_DoPID(i,machineData);
- 			input<<gait.online_ideal_foot_pos_before_PID[0]<<"\t";
-			input<<gait.online_ideal_foot_pos_before_PID[1]<<"\t";
-			input<<gait.online_ideal_foot_pos_before_PID[2]<<"\t";
-			input<<gait.online_ideal_foot_pos[0]<<"\t";
-			input<<gait.online_ideal_foot_pos[1]<<"\t";
-			input<<gait.online_ideal_foot_pos[2]<<"\t";
-
-		 	input<<gait.online_ideal_screw_pos_before_PID[0]<<"\t";
-		 	input<<gait.online_ideal_screw_pos_before_PID[1]<<"\t";
-		 	input<<gait.online_ideal_screw_pos_before_PID[2]<<"\t";
-		 	input<<gait.online_ideal_screw_pos[0]<<"\t";
-		 	input<<gait.online_ideal_screw_pos[1]<<"\t";
-		 	input<<gait.online_ideal_screw_pos[2]<<"\t";
-
-		 //	input<<gait.online_ideal_screw_pos[15]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos[16]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos[17]<<"\t";
-		//	input<<gait.online_ideal_foot_pos_before_PID[6]<<"\t";
-		//	input<<gait.online_ideal_foot_pos_before_PID[7]<<"\t";
-		//	input<<gait.online_ideal_foot_pos_before_PID[8]<<"\t";
-		//	input<<gait.online_ideal_foot_pos[6]<<"\t";
-		//	input<<gait.online_ideal_foot_pos[7]<<"\t";
-		//	input<<gait.online_ideal_foot_pos[8]<<"\t";
-
-		// 	input<<gait.online_ideal_screw_pos_before_PID[6]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos_before_PID[7]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos_before_PID[8]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos[6]<<"\t";
-		 //	input<<gait.online_ideal_screw_pos[7]<<"\t";
-		// 	input<<gait.online_ideal_screw_pos[8]<<"\t";
-
-		 	//input<<gait.online_angle[0]<<"\t";
-		 //	input<<gait.online_angle[1]<<"\t";
-		 //	input<<gait.online_angle[2]<<"\t";
-		 	//input<<gait.online_angleVel[0]<<"\t";
-		 //	input<<gait.online_angleVel[1]<<"\t";
-		 	//input<<gait.online_angleVel[2]<<"\t";
-		 //	input<<gait.online_IMU_313[0]<<"\t";
-		//	input<<gait.online_IMU_313[1]<<"\t";
-		 //	input<<gait.online_IMU_313[2]<<"\t";
-
-
-
-		 //	input<<gait.online_ideal_screw_vel[0]<<"\t";
-		 //	input<<gait.online_ideal_screw_vel[1]<<"\t";
-		 //	input<<gait.online_ideal_screw_vel[2]<<"\t";
-
-		 //	input<<gait.online_last_ideal_screw_vel[0]<<"\t";
-		 //	input<<gait.online_last_ideal_screw_vel[1]<<"\t";
-		 //	input<<gait.online_last_ideal_screw_vel[2]<<"\t";
-
-
-			input<<endl;
-		}
-
-
-
-	//	input.close();*/
-
-	}
-
-	//rt_printf("angle 313 %f %f %f\n",gait.online_angle[0],gait.online_angle[1],gait.online_angle[2]);
-	// for(int i = 0; i < 3; i++)
-	// rt_printf("Linear Acc[%d] = %.3lf   ", machineData.IMUData.LinearAccleration[i]);
-	// rt_printf("\n");
 
 	const int MapAbsToPhy[18]=
 	{
@@ -831,6 +710,21 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 		}
 		break;
 
+
+	case TORQUETEST:
+
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		{
+		    for(int i=0;i<18;i++)
+		    {
+				machineData.motorsModes[i]=EOperationMode::OM_CYCLICTORQ;
+				gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_TORQUETEST;
+				machineData.motorsCommands[i]=EMCMD_RUNNING;
+
+		    }
+		}
+		break;
+
 	case 1035:
 		//rt_printf("IMU\n\n\n\n");
 		msgSend.PasteAt(gait.online_angle,sizeof(double)*3,0);
@@ -954,6 +848,10 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
     	data.SetMsgID(TOSTANDSTILL);
     	cs.NRT_PostMsg(data);
     	break;
+    case 18:
+    	data.SetMsgID(TORQUETEST);
+    	cs.NRT_PostMsg(data);
+    	break;
 
 
     default:
@@ -968,7 +866,7 @@ int On_RT_DataReceived(Aris::Core::MSG &data)
 {
 	if(Is_CS_Connected==true)
 	{
-	    printf("Sending data to client,data length: %d\n",data.GetLength());
+	   // printf("Sending data to client,data length: %d\n",data.GetLength());
 		ControlSystem.SendData(data);
 	}
 }
@@ -1019,7 +917,7 @@ int main(int argc, char** argv)
 			initParam.homeLowSpeed=80000;
 			initParam.homeAccel=8000;
 			initParam.homeMode=-1;
-			initParam.homeTorqueLimit=1000;
+			initParam.homeTorqueLimit= 0;
 
 			////necessary steps
 			initParam.homeOffsets=HEXBOT_HOME_OFFSETS_RESOLVER;
@@ -1048,8 +946,6 @@ int main(int argc, char** argv)
 			}*/
 			while(!cs.IsSysStopped())
 			{
-
-
 				Count++;
 				sleep(1);
 			}

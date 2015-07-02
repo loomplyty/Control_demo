@@ -20,20 +20,6 @@ Aris_Message.h
 Aris_Socket.h
 /home/hex/Desktop/Control_demo/Aris_Socket.h
 
-/home/hex/Desktop/Control_demo/main.cpp
-cstring
--
-iomanip
--
-bitset
--
-Platform.h
-/home/hex/Desktop/Control_demo/Platform.h
-Client.h
-/home/hex/Desktop/Control_demo/Client.h
-unistd.h
--
-
 /usr/Aris/include/Aris_Core.h
 
 /usr/Aris/include/Aris_Message.h

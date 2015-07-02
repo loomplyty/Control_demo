@@ -894,6 +894,51 @@ int CGait::RunGait(EGAIT* p_gait,Aris::RT_CONTROL::CMachineData& p_data)
 				}*/
 			switch(p_gait[i])
 			{
+
+
+			case GAIT_TORQUETEST:
+
+				if(p_gait[i]!=m_currentGait[i])
+				{
+					rt_printf("driver %d: GAIT_TORQUETEST begin\n",i);
+					m_gaitState[i]=EGaitState::GAIT_RUN;
+					m_currentGait[i]=p_gait[i];
+					m_gaitStartTime[i]=p_data.time;
+				    m_commandDataMapped[motorID].Torque=10;
+
+				}
+				else
+				{
+					m_gaitCurrentIndex[i]=(int)(p_data.time-m_gaitStartTime[i]);
+
+					static double Kp=0.005;
+					static double Kd=0.0001;
+
+			    	m_commandDataMapped[motorID].Torque=int(Kp*( m_standStillData[motorID].Position-m_feedbackDataMapped[motorID].Position)-Kd*m_feedbackDataMapped[motorID].Velocity);
+
+                    if(i==0)
+                    {
+                      // rt_printf("feedback torque %d\n",m_feedbackDataMapped[motorID].Torque);
+                     //  rt_printf("command torque %d\n",m_commandDataMapped[motorID].Torque);
+                  //     rt_printf("feedback velocity %d\n",m_feedbackDataMapped[motorID].Velocity);
+
+                    }
+
+					if(m_gaitCurrentIndex[i]==GAIT_HOME2START_LEN*10-1)
+					{
+						rt_printf("driver %d:GAIT_HOME2START will transfer to GAIT_STANDSTILL...\n",i);
+						p_gait[i]=GAIT_STANDSTILL;
+
+						m_standStillData[motorID].Position=m_feedbackDataMapped[motorID].Position;
+						m_standStillData[motorID].Velocity=m_feedbackDataMapped[motorID].Velocity;
+						m_standStillData[motorID].Torque=m_feedbackDataMapped[motorID].Torque;
+						m_gaitState[i]=EGaitState::GAIT_STOP;
+					}
+
+				}
+				break;
+
+
 			case GAIT_TOSTANDSTILL:
 
 				double screw_pos[18];
