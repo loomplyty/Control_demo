@@ -52,16 +52,30 @@ using namespace std;
 #define GAIT_BACKWARD_CON_LEN 5000
 #define GAIT_BACKWARD_DEC_LEN 5000
 
-
-
-
 extern double GAIT_TXT_TRAJ_LEN;
 extern double GaitTxtTraj[GAIT_RANDOM_LEN][GAIT_WIDTH];
-
-
-//
 #define MOTOR_NUM 18
 
+
+
+const int MapAbsToPhy[18]=
+{
+		0,	1,	2,
+		3,	4,	5,
+		6,	7,	8,
+		9,	10,	11,
+		12,	13,	14,
+		15,	16,	17
+};
+const int MapPhyToAbs[18]=
+{
+		0,	1,	2,
+		3,	4,	5,
+		6,	7,	8,
+		9,	10,	11,
+		12,	13,	14,
+		15,	16,	17
+};
 
 enum EGaitState
 {
@@ -84,17 +98,6 @@ enum EGAIT
 	GAIT_GO_TXT_TRAJ=8,
 
 
-
-	/*GAIT_MOVE=3,
-	GAIT_MOVE_BACK=4,
-    GAIT_FAST_MOVE=5,
-	GAIT_FAST_MOVE_BACK=6,
-	GAIT_TROT=7,
-	GAIT_LEGUP=8,
-	GAIT_TURN_LEFT=9,
-	GAIT_TURN_RIGHT=10,
-	GAIT_HOME=11,
-	GAIT_ONLINE=12*/
 };
 
 

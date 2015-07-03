@@ -64,34 +64,30 @@ int initFun(Aris::RT_CONTROL::CSysInitParameters& param)
 	return 0;
 };
 
-int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::RT_CONTROL::RT_MSG& msg)
+int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,Aris::Core::RT_MSG& msgSend)
 {
-	// for(int i = 0; i < 3; i++)
-	// rt_printf("Linear Acc[%d] = %.3lf   ", machineData.IMUData.LinearAccleration[i]);
-	// rt_printf("\n");
-
-	const int MapAbsToPhy[18]=
+	static int tg_count;
+	if(tg_count%1000==0)
 	{
-			0,	1,	2,
-			3,	4,	5,
-			6,	7,	8,
-			9,	10,	11,
-			12,	13,	14,
-			15,	16,	17
-	};
-	const int MapPhyToAbs[18]=
-	{
-			0,	1,	2,
-			3,	4,	5,
-			6,	7,	8,
-			9,	10,	11,
-			12,	13,	14,
-			15,	16,	17
-	};
+		msgSend.SetMsgID(DataFromRT);
+	    msgSend.SetLength(sizeof(int)*5*18);
 
+	    for(int i=0;i<18;i++)
+	    {
+	    	msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),sizeof(int)*(5*i));
+	    	msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),sizeof(int)*(5*i+1));
+	    	msgSend.CopyAt(&machineData.feedbackData[i].Position,sizeof(int),sizeof(int)*(5*i+2));
+	    	msgSend.CopyAt(&machineData.feedbackData[i].Velocity,sizeof(int),sizeof(int)*(5*i+3));
+	    	msgSend.CopyAt(&machineData.feedbackData[i].Torque,sizeof(int),sizeof(int)*(5*i+4));
+	    }
+
+	    cs.RT_PostMsg(msgSend);
+	}
+
+	tg_count++;
  	int CommandID;
 
-	 CommandID=msg.GetMsgID();
+	 CommandID=msgRecv.GetMsgID();
  	switch(CommandID)
 	{
 	case NOCMD:
@@ -442,8 +438,6 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::RT_CONTROL::RT_MSG& msg
 		//DO NOTHING, CMD AND TRAJ WILL KEEP STILL
  		break;
 	}
-    // gait.IfReadytoSetGait(machineData.isMotorHomed[0]);
-    // rt_printf("driver 0 gaitcmd:%d\n",gaitcmd[0]);
 
      gait.RunGait(gaitcmd,machineData);
 
@@ -572,6 +566,9 @@ int main(int argc, char** argv)
     Aris::Core::RegisterMsgCallback(CS_CMD_Received,On_CS_CMD_Received);
     Aris::Core::RegisterMsgCallback(CS_Lost,On_CS_Lost);
     Aris::Core::RegisterMsgCallback(GetControlCommand,OnGetControlCommand);
+    Aris::Core::RegisterMsgCallback(DataFromRT,OnDataFromRT);
+
+
 
 //   CONN call back
 	/*设置所有CONN类型的回调函数*/

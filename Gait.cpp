@@ -24,10 +24,6 @@ int  CGait::motorNumHomed;
 
 
 
-///////////////////////////////////////////////
-//int GaitMove[GAIT_MOVE_LEN][GAIT_WIDTH];
-//int GaitMoveBack[GAIT_MOVEBACK_LEN][GAIT_WIDTH];
-
 int GaitHome2Start[GAIT_HOME2START_LEN][GAIT_WIDTH];
 
 int GaitTestTraj[GAIT_TESTTRAJ_LEN][GAIT_WIDTH];
@@ -42,53 +38,6 @@ int GaitBackwardDecTraj[GAIT_BACKWARD_DEC_LEN][GAIT_WIDTH];
 
 
 
-
-///////////////////////////////////////////////
-/*int GaitMove_Acc[GAIT_ACC_LEN][GAIT_WIDTH];
-int GaitMove_Cons[GAIT_CON_LEN][GAIT_WIDTH];
-int GaitMove_Dec[GAIT_DEC_LEN][GAIT_WIDTH];
-
-int GaitMoveBack_Acc[GAIT_ACC_LEN][GAIT_WIDTH];
-int GaitMoveBack_Cons[GAIT_CON_LEN][GAIT_WIDTH];
-int GaitMoveBack_Dec[GAIT_DEC_LEN][GAIT_WIDTH];
-
-int GaitFastMove_Acc[GAIT_FAST_ACC_LEN][GAIT_WIDTH];
-int GaitFastMove_Cons[GAIT_FAST_CON_LEN][GAIT_WIDTH];
-int GaitFastMove_Dec[GAIT_FAST_DEC_LEN][GAIT_WIDTH];
-
-int GaitFastMoveBack_Acc[GAIT_FAST_ACC_LEN][GAIT_WIDTH];
-int GaitFastMoveBack_Cons[GAIT_FAST_CON_LEN][GAIT_WIDTH];
-int GaitFastMoveBack_Dec[GAIT_FAST_DEC_LEN][GAIT_WIDTH];
-
-int GaitTrot_Acc[GAIT_TROT_ACC_LEN][GAIT_WIDTH];
-int GaitTrot_Cons[GAIT_TROT_CON_LEN][GAIT_WIDTH];
-int GaitTrot_Dec[GAIT_TROT_DEC_LEN][GAIT_WIDTH];
-
-int GaitLegUp[GAIT_LEGUP_LEN][GAIT_WIDTH];
-
-int GaitTurnLeft[GAIT_TURN_LEN][GAIT_WIDTH];
-
-int GaitTurnRight[GAIT_TURN_LEN][GAIT_WIDTH];*/
-
-
-const int MapAbsToPhy[18]=
-{
-		0,1,2,
-		3,4,5,
-		6,7,8,
-		9,10,11,
-		12,13,14,
-		15,16,17
-};
-const int MapPhyToAbs[18]=
-{
-		0,1,2,
-		3,4,5,
-		6,7,8,
-		9,10,11,
-		12,13,14,
-		15,16,17
-};
 
 void CGait::MapFeedbackDataIn(Aris::RT_CONTROL::CMachineData& p_data )
 {

@@ -7,19 +7,13 @@ using namespace std;
 
 using namespace Aris::Core;
 
-
 double GaitTxtTraj[GAIT_RANDOM_LEN][GAIT_WIDTH];
 double GAIT_TXT_TRAJ_LEN;
 
-
-//static int LastCMD=-1;
-
 CONN ControlSystem, VisualSystem;
+bool Is_cs_connected=false;
 
-//#include "Hexapod_Robot.h"
-
-// CONN call back functions
-int On_CS_ConnectionReceived(Aris::Core::CONN *pConn, const char* addr,int port)
+ int On_CS_ConnectionReceived(Aris::Core::CONN *pConn, const char* addr,int port)
 {
 	Aris::Core::MSG msg;
 
@@ -48,6 +42,7 @@ int On_CS_DataReceived(Aris::Core::CONN *pConn, Aris::Core::MSG &data)
 }
 int On_CS_ConnectionLost(Aris::Core::CONN *pConn)
 {
+	Is_cs_connected=false;
 	PostMsg(Aris::Core::MSG(CS_Lost));
 	return 0;
 }
@@ -61,6 +56,7 @@ int On_CS_Connected(Aris::Core::MSG &msg)
 
 	Aris::Core::MSG data(0,0);
 	ControlSystem.SendData(data);
+	Is_cs_connected=true;
 	return 0;
 }
 
@@ -152,8 +148,7 @@ int On_CS_CMD_Received(Aris::Core::MSG &msg)
 
     if(IsCMDOK)
     {
-    	//cout<<"From cmd received call back function. Gait Needed is: "<<Command.GetMsgID()<<endl;
-    	PostMsg(Command);
+     	PostMsg(Command);
     }
 
 
@@ -168,6 +163,16 @@ int On_CS_Lost(Aris::Core::MSG &msg)
 		cout << "Control system connection lost" << endl;
 		ControlSystem.StartServer("5690");
 		return 0;
+}
+
+int OnDataFromRT(Aris::Core::MSG &msg)
+{
+	if(Is_cs_connected==true)
+	{
+		ControlSystem.SendData(msg);
+		return 0;
+	}
+	return 1;
 }
 
 

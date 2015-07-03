@@ -12,8 +12,23 @@ CONN ControlSysClient;
 //CONN callback functions
 int OnConnDataReceived(Aris::Core::CONN *pConn, Aris::Core::MSG &data)
 {
-	Aris::Core::PostMsg(Aris::Core::MSG(ControlCommandNeeded));
-	return 0;
+
+	if(data.GetMsgID()==10000)
+	{
+		int status,mode,pos,vel,trq;
+		data.PasteAt(&status,sizeof(int),0);
+		data.PasteAt(&mode,sizeof(int),sizeof(int));
+		data.PasteAt(&pos,sizeof(int),sizeof(int)*2);
+		data.PasteAt(&vel,sizeof(int),sizeof(int)*3);
+		data.PasteAt(&trq,sizeof(int),sizeof(int)*4);
+		cout<<"status: "<<status<<endl<<"mode :"<<mode<<endl<<"pos :"<<pos<<endl<<"vel:"<<vel<<endl<<"trq :"<<trq<<endl;
+	}
+	else if (data.GetMsgID()==0)
+	{
+		Aris::Core::PostMsg(Aris::Core::MSG(ControlCommandNeeded));
+		return 0;
+	}
+
 }
 
 int OnConnectLost(Aris::Core::CONN *pConn)

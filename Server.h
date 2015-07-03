@@ -17,40 +17,29 @@ enum Client_Msg
 	VS_Connected=3,
 	VS_MAP_Received=4,
 	VS_Lost=5,
+
 };
 
 //register is in ac_test
 enum RobotCMD_Msg
 {
 	GetControlCommand=100,
+	DataFromRT=10000,
 };
 
-/*enum COMMAND
-{
-	Enable,
-	Disable,
-	Home,
-	Standstill,
-	Startgait,
-	Back,
-	Stop,
-    AdaptiveWalk,
-    BeginDiscover,
-    EndDiscover,
-    SIT,
-};*/
+
 
 //CS
 //MSG callback
 int On_CS_Connected(Aris::Core::MSG &msg);
 int On_CS_CMD_Received(Aris::Core::MSG &msg);
 int On_CS_Lost(Aris::Core::MSG &msg);
+int OnDataFromRT(Aris::Core::MSG &msg);
 
 // CONN callback
 int On_CS_ConnectionReceived(Aris::Core::CONN *pConn, const char* addr,int port);
 int On_CS_DataReceived(Aris::Core::CONN *pConn, Aris::Core::MSG &data);
 int On_CS_ConnectionLost(Aris::Core::CONN *pConn);
-
 //VS
 //MSG callback
 int On_VS_Connected(Aris::Core::MSG &msg);
@@ -65,4 +54,5 @@ int On_VS_ConnectionLost(Aris::Core::CONN *pConn);
 
 extern Aris::Core::CONN ControlSystem;
 extern Aris::Core::CONN VisualSystem;
+extern bool Is_cs_connected;
 #endif
