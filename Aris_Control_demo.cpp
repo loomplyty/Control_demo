@@ -13,29 +13,6 @@
 #include "Aris_Socket.h"
 #include "Server.h"
 
-
-#include <xsens/xsportinfoarray.h>
-#include <xsens/xsdatapacket.h>
-#include <xsens/xstime.h>
-#include <xcommunication/legacydatapacket.h>
-#include <xcommunication/int_xsdatapacket.h>
-#include <xcommunication/enumerateusbdevices.h>
-#include <xcommunication/mtwsdidata.h>
-
-#include "deviceclass.h"
-
-#include <iostream>
-#include <iomanip>
-#include <stdexcept>
-#include <string>
-
-
-#ifdef __GNUC__
-#include "conio.h" // for non ANSI _kbhit() and _getch()
-#else
-#include <conio.h>
-#endif
-
 using namespace std;
 using namespace Aris::RT_CONTROL;
 
@@ -46,7 +23,6 @@ static EGAIT gaitcmdtemp[AXIS_NUMBER];
 Aris::RT_CONTROL::ACTUATION cs;
 //CSysBase sysbase;
 Aris::RT_CONTROL::CSysInitParameters initParam;
-int Count;
 
  enum MACHINE_CMD
  {
@@ -59,18 +35,16 @@ int Count;
 	 GOHOME_2=1006,
 	 HOME2START_1=1007,
 	 HOME2START_2=1008,
- 	 FORWARD=1009,
-	 BACKWARD=1010,
-	 FAST_FORWARD=1011,
-	 FAST_BACKWARD=1012,
-	 LEGUP=1013,
-	 TURNLEFT=1014,
-	 TURNRIGHT=1015,
-	 ONLINEGAIT=1016,
-	 TOSTANDSTILL=1017,
-	 TORQUETEST=1018,
+ 	 TEST_TRAJ=1009,
+ 	 BACK_TO_HOME=1010,
+ 	 GO_TXT_TRAJ=1011,
+ 	 FORWARD=1012,
+ 	 SLOW_AND_STOP=1013,
+ 	 BACKWARD=1014,
+
  };
 
+ int count;
 
 /*
  * Trajectory Generator
@@ -84,315 +58,40 @@ int Count;
  };
 
 
-void* Thread_IMU(void *)
-{
-	DeviceClass device;
-
-	try
-	{
-		// Scan for connected USB devices
-		std::cout << "Scanning for USB devices..." << std::endl;
-		XsPortInfoArray portInfoArray;
-		xsEnumerateUsbDevices(portInfoArray);
- 		if (!portInfoArray.size())
-		{
-			std::string portNumber="/dev/ttyUSB0";
-			int baudRate=921600;
-
-			std::cout << "No USB Motion Tracker found." << std::endl << std::endl
-					<< "COM port name set as "<<portNumber <<std::endl
-					<< "Baud rate set as "<<baudRate<<std::endl<<std::endl;
-
-			XsPortInfo portInfo(portNumber, XsBaud::numericToRate(baudRate));
-			portInfoArray.push_back(portInfo);
-		}
-
-		// Use the first detected device
-		XsPortInfo mtPort = portInfoArray.at(0);
-
-		// Open the port with the detected device
-		std::cout << "Opening port..." << std::endl;
-		if (!device.openPort(mtPort))
-			throw std::runtime_error("Could not open port. Aborting.");
-
-		// Put the device in configuration mode
-		std::cout << "Putting device into configuration mode..." << std::endl;
-		if (!device.gotoConfig()) // Put the device into configuration mode before configuring the device
-		{
-			throw std::runtime_error("Could not put device into configuration mode. Aborting.");
-		}
-
-		// Request the device Id to check the device type
-		mtPort.setDeviceId(device.getDeviceId());
-
-		// Check if we have an MTi / MTx / MTmk4 device
-		if (!mtPort.deviceId().isMt9c() && !mtPort.deviceId().isMtMk4())
-		{
-			throw std::runtime_error("No MTi / MTx / MTmk4 device found. Aborting.");
-		}
-		std::cout << "Found a device with id: " << mtPort.deviceId().toString().toStdString() << " @ port: " << mtPort.portName().toStdString() << ", baudrate: " << mtPort.baudrate() << std::endl;
-
-		try
-		{
-			// Print information about detected MTi / MTx / MTmk4 device
-			std::cout << "Device: " << device.getProductCode().toStdString() << " opened." << std::endl;
-
-			// Configure the device. Note the differences between MTix and MTmk4
-			std::cout << "Configuring the device..." << std::endl;
-			if (mtPort.deviceId().isMt9c())
-			{
-				XsOutputMode outputMode = XOM_Orientation; // output orientation data
-				XsOutputSettings outputSettings = XOS_OrientationMode_Quaternion; // output orientation data as quaternion
-
-				// set the device configuration
-				if (!device.setDeviceMode(outputMode, outputSettings))
-				{
-					throw std::runtime_error("Could not configure MT device. Aborting.");
-				}
-			}
-			else if (mtPort.deviceId().isMtMk4())
-			{
-				XsOutputConfiguration quat_Q(XDI_Quaternion, 100);
-				XsOutputConfiguration quat_DQ(XDI_DeltaQ, 100);
-				XsOutputConfiguration quat_DV(XDI_DeltaV, 100);
-				XsOutputConfiguration quat_ACC(XDI_Acceleration, 100);
-				XsOutputConfigurationArray configArray;
-				configArray.push_back(quat_Q);
-				configArray.push_back(quat_DQ);
-				configArray.push_back(quat_DV);
-				configArray.push_back(quat_ACC);
-				if (!device.setOutputConfiguration(configArray))
-				{
-
-					throw std::runtime_error("Could not configure MTmk4 device. Aborting.");
-				}
-			}
-			else
-			{
-				throw std::runtime_error("Unknown device while configuring. Aborting.");
-			}
-
-			// Put the device in measurement mode
-			std::cout << "Putting device into measurement mode..." << std::endl;
-			if (!device.gotoMeasurement())
-			{
-				throw std::runtime_error("Could not put device into measurement mode. Aborting.");
-			}
-
-			std::cout << "\nMain loop (press any key to quit)" << std::endl;
-			std::cout << std::string(79, '-') << std::endl;
-
-			XsByteArray data;
-			XsMessageArray msgs;
-			while (!_kbhit())
-			{
-				device.readDataToBuffer(data);
-				device.processBufferedData(data, msgs);
-				for (XsMessageArray::iterator it = msgs.begin(); it != msgs.end(); ++it)
-				{
-					// Retrieve a packet
-					XsDataPacket packet;
-					if ((*it).getMessageId() == XMID_MtData) {
-						LegacyDataPacket lpacket(1, false);
-						lpacket.setMessage((*it));
-						lpacket.setXbusSystem(false, false);
-						lpacket.setDeviceId(mtPort.deviceId(), 0);
-						lpacket.setDataFormat(XOM_Orientation, XOS_OrientationMode_Quaternion,0);	//lint !e534
-						XsDataPacket_assignFromXsLegacyDataPacket(&packet, &lpacket, 0);
-					}
-					else if ((*it).getMessageId() == XMID_MtData2) {
-						packet.setMessage((*it));
-						packet.setDeviceId(mtPort.deviceId());
-					}
-
-					// Get the quaternion data
-					bool a0=packet.containsOrientation();
-					//std::cout<<"a0:"<<a0;
-					XsQuaternion quaternion = packet.orientationQuaternion();
-/*
-					std::cout << "\r"
-						<< "W:" << std::setw(5) << std::fixed << std::setprecision(2) << quaternion.m_w
-						<< ",X:" << std::setw(5) << std::fixed << std::setprecision(2) << quaternion.m_x
-						<< ",Y:" << std::setw(5) << std::fixed << std::setprecision(2) << quaternion.m_y
-						<< ",Z:" << std::setw(5) << std::fixed << std::setprecision(2) << quaternion.m_z
-					;
-*/
-					// Get deltaQ
-					bool a1=packet.containsSdiData();
-					//std::cout<<"a1:"<<a1;
-					XsSdiData deltaParam=packet.sdiData();
-					XsQuaternion deltaQ=deltaParam.orientationIncrement();
-					XsVector deltaV=deltaParam.velocityIncrement();
-
-				//	std::cout<<"\r"
-				//		<< "dQ W:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaQ.m_w
-				//		<< ",dQ X:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaQ.m_x
-				//		<< ",dQ Y:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaQ.m_y
-				//		<< ",dQ Z:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaQ.m_z
-				//	;
-					/*
-					std::cout<<"\r"
-						<< "dV X:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaV[0]
-						<< ",dV Y:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaV[1]
-						<< ",dV Z:" << std::setw(5) << std::fixed << std::setprecision(2) << deltaV[2]
-					;
-*/
-					// Convert packet to euler
-					XsEuler euler = packet.orientationEuler();
-					double angle[3];
-					angle[0]=euler.m_x/180*PI;
-					angle[1]=euler.m_y/180*PI;
-					angle[2]=euler.m_z/180*PI;
-
-/*
-					std::cout
-						<< ",Roll:" << std::setw(7) << std::fixed << std::setprecision(2) << euler.m_roll
-						<< ",Pitch:" << std::setw(7) << std::fixed << std::setprecision(2) << euler.m_pitch
-						<< ",Yaw:" << std::setw(7) << std::fixed << std::setprecision(2) << euler.m_yaw
-					;
-*/
-					// Get angular velocity
-
-					double angularVelocity[3];
-					angularVelocity[0] = deltaQ[1] / 0.01 * 2.0;
-					angularVelocity[1] = deltaQ[2] / 0.01 * 2.0;
-					angularVelocity[2] = deltaQ[3] / 0.01 * 2.0;
-
-
-				//	std::cout
-				//		<< "aVel X:" << std::setw(7) << std::fixed << std::setprecision(2) << angularVelocity[0]
-				//		<< ",aVel Y:" << std::setw(7) << std::fixed << std::setprecision(2) << angularVelocity[1]
-				//		<< ",aVel Z:" << std::setw(7) << std::fixed << std::setprecision(2) << angularVelocity[2]
-				//	;
-
-
-					// Get acceleration
-					//bool a2=packet.containsCalibratedAcceleration();
-					//std::cout<<"a2:"<<a2<<std::endl;
-					XsVector acceleration=packet.calibratedAcceleration();
-					double linearAcc[3];
-					XsVector(acceleration,linearAcc,3);
-
-
-
- 		 	 	//gait.GetIMUData(angle,angularVelocity,linearAcc);
-
-
-
-//					printf("before POST MSG\n");
-
-				 	Aris::Core::MSG m;
-					m.SetMsgID(1035);
-					m.SetLength(sizeof(double)*9);
-					m.CopyAt(angle,sizeof(double)*3,0);
-					m.CopyAt(angularVelocity,sizeof(double)*3,sizeof(double)*3);
-					m.CopyAt(linearAcc,sizeof(double)*3,sizeof(double)*6);
-
- 					cs.NRT_PostMsg(m);
-
-	           //  cout<<"ANgle of IMU"<<angle[0]<<"  "<<angle[1]<<"  "<<angle[2]<<endl;
-/*
-					std::cout
-							<< "Acc X:" << std::setw(7) << std::fixed << std::setprecision(2) << linearAcc[0]
-							<< ",Acc Y:" << std::setw(7) << std::fixed << std::setprecision(2) << linearAcc[1]
-							<< ",Acc Z:" << std::setw(7) << std::fixed << std::setprecision(2) << linearAcc[2]
-					;
-*/
-					std::cout << std::flush;
-				}
-
-				msgs.clear();
-				XsTime::msleep(0);
-			}
-			_getch();
-			std::cout << "\n" << std::string(79, '-') << "\n";
-			std::cout << std::endl;
-		}
-		catch (std::runtime_error const & error)
-		{
-			std::cout << error.what() << std::endl;
-		}
-		catch (...)
-		{
-			std::cout << "An unknown fatal error has occured. Aborting." << std::endl;
-		}
-
-		// Close port
-		std::cout << "Closing port..." << std::endl;
-		device.close();
-	}
-	catch (std::runtime_error const & error)
-	{
-		std::cout << error.what() << std::endl;
-	}
-	catch (...)
-	{
-		std::cout << "An unknown fatal error has occured. Aborting." << std::endl;
-	}
-
-	std::cout << "Successful exit." << std::endl;
-
-	std::cout << "Press [ENTER] to continue." << std::endl; std::cin.get();
-
-	return 0;
-}
-
 int initFun(Aris::RT_CONTROL::CSysInitParameters& param)
 {
 	gait.InitGait(param);
 	return 0;
 };
-int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,Aris::Core::RT_MSG& msgSend)
+
+int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::RT_CONTROL::RT_MSG& msg)
 {
-
-	static int tg_count;
-	tg_count++;
-	if(tg_count%1000==000)
-	{
- 		    msgSend.SetMsgID(RT_Data_Received);
-
-	    	msgSend.SetLength(sizeof(int)*18*5);
-	    	//states , mode, pos, vel, current
-
-	    	for(int i=0;i<18;i++)
-	    	{
-	    		msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),i*5*sizeof(int));
-	    		msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),(i*5+1)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Position,sizeof(int),(i*5+2)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Velocity,sizeof(int),(i*5+3)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Torque,sizeof(int),(i*5+4)*sizeof(int));
-	    	}
-
-		 //     rt_printf("ty give msg id %d data length %d \n",msgSend.GetMsgID(),msgSend.GetLength());
- 		//  rt_machine_msg.SetMsgID(1000);
-		//  rt_machine_msg.Copy(&machineData,sizeof(machineData));
-
-	         cs.RT_PostMsg(msgSend);
-	}
-
+	// for(int i = 0; i < 3; i++)
+	// rt_printf("Linear Acc[%d] = %.3lf   ", machineData.IMUData.LinearAccleration[i]);
+	// rt_printf("\n");
 
 	const int MapAbsToPhy[18]=
 	{
-			10,	11,	9,
-			12,	14,	13,
-			17,	15,	16,
-			6,	8,	7,
-			3,	5,	4,
-			0,	2,	1
+			0,	1,	2,
+			3,	4,	5,
+			6,	7,	8,
+			9,	10,	11,
+			12,	13,	14,
+			15,	16,	17
 	};
 	const int MapPhyToAbs[18]=
 	{
-			15,	17,	16,
-			12,	14,	13,
-			9,	11,	10,
-			2,	0,	1,
-			3,	5,	4,
-			7,	8,	6
+			0,	1,	2,
+			3,	4,	5,
+			6,	7,	8,
+			9,	10,	11,
+			12,	13,	14,
+			15,	16,	17
 	};
 
  	int CommandID;
 
-	 CommandID=msgRecv.GetMsgID();
+	 CommandID=msg.GetMsgID();
  	switch(CommandID)
 	{
 	case NOCMD:
@@ -434,7 +133,7 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 	 	for(int i=0;i<18;i++)
 	 	{
 			machineData.motorsCommands[i]=EMCMD_RUNNING;
-			gait.IfReadytoSetGait(true,i);
+ 			gait.IfReadytoSetGait(true,i);
 	 	}
 		rt_printf("RUNNING Command Get in NRT\n" );
 		break;
@@ -539,31 +238,88 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 
 		break;
 
- 	case FORWARD:
-	    for(int i=0;i<18;i++)
-		 {
- 			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
-			gaitcmdtemp[i]=EGAIT::GAIT_MOVE;
+	case TEST_TRAJ:
+
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		{
+		    for(int i=0;i<18;i++)
+		    {
+		      machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
+		      gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_TEST_TRAJ;
+		      machineData.motorsCommands[i]=EMCMD_RUNNING;
+
+		    }
+		}
+		break;
+
+	case BACK_TO_HOME:
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		  {
+		    for(int i=0;i<18;i++)
+		      {
+			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
+			gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_BACK_TO_HOME;
 			machineData.motorsCommands[i]=EMCMD_RUNNING;
+		      }
+		  }
+		break;
+	case GO_TXT_TRAJ:
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		  {
+		    for(int i=0;i<18;i++)
+		      {
+			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
+			gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_GO_TXT_TRAJ;
+			machineData.motorsCommands[i]=EMCMD_RUNNING;
+		      }
+		  }
+		break;
+
+	case FORWARD:
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		  {
+		    for(int i=0;i<18;i++)
+		      {
+			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
+			gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_FORWARD_TRAJ;
+			machineData.motorsCommands[i]=EMCMD_RUNNING;
+		      }
+		  }
+		break;
 
 
-		 if(gait.m_gaitState[i]!=GAIT_STOP)
-		 {
-     	   gait.Gait_iter[i]=gait.Gait_iter[i]+1;
-		 }
-		 else
-		 {
-				gaitcmd[i]=gaitcmdtemp[i];
-				gait.Gait_iter[i]=1;
+	case SLOW_AND_STOP:
+
+		if(gait.m_gaitState[MapAbsToPhy[0]]!=GAIT_STOP)
+		{
+			for(int i=0;i<18;i++)
+			{
+				gait.IsConsFinished[i]=true;
+
 			}
+		}
 
-		 }
+		break;
+
+
+	case BACKWARD:
+		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
+		  {
+		    for(int i=0;i<18;i++)
+		      {
+			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
+			gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_BACKWARD_TRAJ;
+			machineData.motorsCommands[i]=EMCMD_RUNNING;
+		      }
+		  }
+		break;
+
+
+
 
 	   // rt_printf("driver 0 gaitcmd:%d\n",gaitcmd[0]);
 
-
-		break;
- 	case BACKWARD:
+ 	/*case BACKWARD:
 	    for(int i=0;i<18;i++)
 		 {
  			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
@@ -580,10 +336,7 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 				gaitcmd[i]=gaitcmdtemp[i];
 				gait.Gait_iter[i]=1;
 			}
-
 		 }
-
-	   // rt_printf("driver 0 gaitcmd:%d\n",gaitcmd[0]);
 
 		break;
 
@@ -631,6 +384,7 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 
 		 }
 
+
 		break;
 	case LEGUP:
 
@@ -673,68 +427,7 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 		break;
 	case ONLINEGAIT:
 
-	    for(int i=0;i<18;i++)
-		 {
- 			machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
-			gaitcmdtemp[i]=EGAIT::GAIT_ONLINE;
-			machineData.motorsCommands[i]=EMCMD_RUNNING;
-
-
-		 if(gait.m_gaitState[i]!=GAIT_STOP)
-		 {
-     	   gait.Gait_iter[i]=gait.Gait_iter[i]+1;
-		 }
-		 else
-		 {
-				gaitcmd[i]=gaitcmdtemp[i];
-				gait.Gait_iter[i]=1;
-		}
-
-		 }
-
-	   // rt_printf("driver 0 gaitcmd:%d\n",gaitcmd[0]);
-
-
-		break;
-	case TOSTANDSTILL:
-
 		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
-		{
-		    for(int i=0;i<18;i++)
-		    {
-				machineData.motorsModes[i]=EOperationMode::OM_CYCLICVEL;
-				gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_TOSTANDSTILL;
-				machineData.motorsCommands[i]=EMCMD_RUNNING;
-
-		    }
-		}
-		break;
-
-
-	case TORQUETEST:
-
-		if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
-		{
-		    for(int i=0;i<18;i++)
-		    {
-				machineData.motorsModes[i]=EOperationMode::OM_CYCLICTORQ;
-				gaitcmd[MapAbsToPhy[i]]=EGAIT::GAIT_TORQUETEST;
-				machineData.motorsCommands[i]=EMCMD_RUNNING;
-
-		    }
-		}
-		break;
-
-	case 1035:
-		//rt_printf("IMU\n\n\n\n");
-		msgSend.PasteAt(gait.online_angle,sizeof(double)*3,0);
-	    msgSend.PasteAt(gait.online_angleVel,sizeof(double)*3,sizeof(double)*3);
-		msgSend.PasteAt(gait.online_linearAcc,sizeof(double)*3,sizeof(double)*6);
-	   // rt_printf("IMU raw data %f %f %f\n",gait.online_angle[0],gait.online_angle[1],gait.online_angle[2]);
-
-		break;
-
-		/*if(gait.m_gaitState[MapAbsToPhy[0]]==GAIT_STOP)
 		{
 		    for(int i=0;i<18;i++)
 		    {
@@ -761,13 +454,14 @@ return 0;
 //offsets driver order
 static int HEXBOT_HOME_OFFSETS_RESOLVER[18] =
 {
-		-15849882+349000,	 -16354509+349000,	 -16354509+349000,
-		-15849882+349000,	 -16354509+349000,	 -16354509+349000,
-		-15849882+349000,	 -16354509+349000,	 -16354509+349000,
-		-16354509+349000,	 -15849882+349000,	 -16354509+349000,
-		-15849882+349000,	 -16354509+349000,	 -16354509+349000,
-		-16354509+349000,	 -16354509+349000,  -15849882+349000
+		0,0,0,
+		0,0,0,
+		0,0,0,
+		0,0,0,
+		0,0,0,
+		0,0,0
 };
+
 
 int OnGetControlCommand(Aris::Core::MSG &msg)
 {
@@ -779,9 +473,6 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
     {
     case 1:
 		data.SetMsgID(POWEROFF);
-		int k;
-		k=123;
-		data.Copy(&k,sizeof(int));
 		cs.NRT_PostMsg(data);
 		break;
     case 2:
@@ -813,10 +504,28 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
 		cs.NRT_PostMsg(data);
     	break;
     case 9:
-    	data.SetMsgID(FORWARD);
+    	data.SetMsgID(TEST_TRAJ);
 		cs.NRT_PostMsg(data);
     	break;
     case 10:
+    	data.SetMsgID(BACK_TO_HOME);
+		cs.NRT_PostMsg(data);
+    	break;
+    case 11:
+    	data.SetMsgID(GO_TXT_TRAJ);
+    	cs.NRT_PostMsg(data);
+    	break;
+    case 12:
+        data.SetMsgID(FORWARD);
+    	cs.NRT_PostMsg(data);
+        break;
+    case 13:
+    	data.SetMsgID(SLOW_AND_STOP);
+    	cs.NRT_PostMsg(data);
+    	break;
+
+
+    /*case 10:
     	data.SetMsgID(BACKWARD);
 		cs.NRT_PostMsg(data);
     	break;
@@ -843,15 +552,7 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
     case 16:
     	data.SetMsgID(ONLINEGAIT);
     	cs.NRT_PostMsg(data);
-    	break;
-    case 17:
-    	data.SetMsgID(TOSTANDSTILL);
-    	cs.NRT_PostMsg(data);
-    	break;
-    case 18:
-    	data.SetMsgID(TORQUETEST);
-    	cs.NRT_PostMsg(data);
-    	break;
+    	break;*/
 
 
     default:
@@ -860,16 +561,8 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
 
     }
     return CommandID;
-};
 
-int On_RT_DataReceived(Aris::Core::MSG &data)
-{
-	if(Is_CS_Connected==true)
-	{
-	   // printf("Sending data to client,data length: %d\n",data.GetLength());
-		ControlSystem.SendData(data);
-	}
-}
+};
 //static int driverIDs[18]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17};
 
 int main(int argc, char** argv)
@@ -879,7 +572,6 @@ int main(int argc, char** argv)
     Aris::Core::RegisterMsgCallback(CS_CMD_Received,On_CS_CMD_Received);
     Aris::Core::RegisterMsgCallback(CS_Lost,On_CS_Lost);
     Aris::Core::RegisterMsgCallback(GetControlCommand,OnGetControlCommand);
-    Aris::Core::RegisterMsgCallback(RT_Data_Received,On_RT_DataReceived);
 
 //   CONN call back
 	/*设置所有CONN类型的回调函数*/
@@ -895,65 +587,39 @@ int main(int argc, char** argv)
     ControlSystem.StartServer("5690");
      // VisualSys.StartServer("5691");
 	Aris::Core::THREAD T1,T2,T3 ;
- //	 T1.SetFunction(Thread1);
-	 T2.SetFunction(Thread2);
+ 	 T2.SetFunction(Thread2);
   // cs.Load_XML_PrintMessage();
      T2.Start(0);
 
-     T3.SetFunction(Thread_IMU);
+	cs.SetSysInitializer(initFun);
+	cs.SetTrajectoryGenerator(tg);
+
+	initParam.motorNum=18;
+	initParam.homeHighSpeed=100000;
+	initParam.homeLowSpeed=10000;
+	initParam.homeAccel=100000;
+	initParam.homeMode=-1;
+	//initParam.homeTorqueLimit=0;
 
 
-     //sleep(1);//waiting for IMU uploading
-    // if (gait.online_angle[0]!=0||gait.online_angle[1]!=0||gait.online_angle[2]!=0)
-      //    {
-			cs.SetSysInitializer(initFun);
+	////necessary steps
+	initParam.homeOffsets=HEXBOT_HOME_OFFSETS_RESOLVER;
+  	cs.SysInit(initParam);
 
-			cs.SetTrajectoryGenerator(tg);
+	cs.SysInitCommunication();
 
-			//cs.SetModeCycVel();
+	cs.SysStart();
 
-			initParam.motorNum=18;
-			initParam.homeHighSpeed=280000;
-			initParam.homeLowSpeed=80000;
-			initParam.homeAccel=8000;
-			initParam.homeMode=-1;
-			initParam.homeTorqueLimit= 0;
+	printf("Will start\n");
+	while(!cs.IsSysStopped())
+	{
 
-			////necessary steps
-			initParam.homeOffsets=HEXBOT_HOME_OFFSETS_RESOLVER;
-			cs.SysInit(initParam);
-
-			cs.SysInitCommunication();
-
-			cs.SysStart();
-		    T3.Start(0);
-		    sleep(1);
+		count++;
+		sleep(1);
+	}
 
 
-	        //printf("old %f %f %f\n",gait.online_angle[0],gait.online_angle[1],gait.online_angle[2]);
-
-		//    if (gait.online_angle[0]==0&&gait.online_angle[1]==0&&gait.online_angle[2]==0)
-		  //  	cs.SysStop();
-
-			printf("Will start\n");
-
-			/*Aris::Core::MSG msg;
-			msg.SetMsgID(100035);
-			while(!cs.IsSysStopped())
-			{
-				if(Count%1000==0)
-					cs.NRT_PostMsg(msg);
-			}*/
-			while(!cs.IsSysStopped())
-			{
-				Count++;
-				sleep(1);
-			}
-        //  }
-       // else
-    	    // cout<<"IMU processing data failed !"<<endl;
-
-	 return 0;
+	return 0;
 
 };
 
