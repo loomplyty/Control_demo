@@ -347,7 +347,7 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 
 	static int tg_count;
 	tg_count++;
-	if(tg_count%10==000)
+	if(tg_count%1000==000)
 	{
  		    msgSend.SetMsgID(RT_Data_Received);
 

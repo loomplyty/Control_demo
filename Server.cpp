@@ -30,7 +30,8 @@ int On_CS_DataReceived(Aris::Core::CONN *pConn, Aris::Core::MSG &data)
 {
 	    int cmd=data.GetMsgID();
 		//RobotCMD_Msg CMD;
-        MSG CMD=CS_CMD_Received;
+        MSG CMD;
+        CMD.SetMsgID(CS_CMD_Received);
        // int ID=CMD.GetMsgID();
       //cout<<"MSG ID is :"<<ID<<endl;
         CMD.SetLength(sizeof(int));
