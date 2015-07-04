@@ -8,7 +8,7 @@ using namespace Aris::Core;
 //static int LastCMD=-1;
 
 CONN ControlSystem, VisualSystem;
-bool Is_CS_Connected;
+bool Is_CS_Connected=false;
 
 //#include "Hexapod_Robot.h"
 

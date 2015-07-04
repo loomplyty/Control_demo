@@ -69,4 +69,5 @@ int On_VS_ConnectionLost(Aris::Core::CONN *pConn);
 
 extern Aris::Core::CONN ControlSystem;
 extern Aris::Core::CONN VisualSystem;
+extern ofstream file;
 #endif

@@ -98,24 +98,7 @@ int GaitTurnLeft[GAIT_TURN_LEN][GAIT_WIDTH];
 int GaitTurnRight[GAIT_TURN_LEN][GAIT_WIDTH];
 
 
-const int MapAbsToPhy[18]=
-{
-		10,	11,	9,
-		12,	14,	13,
-		17,	15,	16,
-		6,	8,	7,
-		3,	5,	4,
-		0,	2,	1
-};
-const int MapPhyToAbs[18]=
-{
-		15,	17,	16,
-		12,	14,	13,
-		9,	11,	10,
-		2,	0,	1,
-		3,	5,	4,
-		7,	8,	6
-};
+
 
 void CGait::MapFeedbackDataIn(Aris::RT_CONTROL::CMachineData& p_data )
 {
@@ -914,7 +897,7 @@ int CGait::RunGait(EGAIT* p_gait,Aris::RT_CONTROL::CMachineData& p_data)
 					static double Kp=0.005;
 					static double Kd=0.0001;
 
-			    	m_commandDataMapped[motorID].Torque=int(Kp*( m_standStillData[motorID].Position-m_feedbackDataMapped[motorID].Position)-Kd*m_feedbackDataMapped[motorID].Velocity);
+			    	m_commandDataMapped[motorID].Torque=int(Kp*( GaitHome2Start[m_gaitCurrentIndex[i]][motorID]-m_feedbackDataMapped[motorID].Position)-Kd*m_feedbackDataMapped[motorID].Velocity);
 
                     if(i==0)
                     {
@@ -924,7 +907,7 @@ int CGait::RunGait(EGAIT* p_gait,Aris::RT_CONTROL::CMachineData& p_data)
 
                     }
 
-					if(m_gaitCurrentIndex[i]==GAIT_HOME2START_LEN*10-1)
+					if(m_gaitCurrentIndex[i]==GAIT_HOME2START_LEN-1)
 					{
 						rt_printf("driver %d:GAIT_HOME2START will transfer to GAIT_STANDSTILL...\n",i);
 						p_gait[i]=GAIT_STANDSTILL;
@@ -1062,49 +1045,6 @@ int CGait::RunGait(EGAIT* p_gait,Aris::RT_CONTROL::CMachineData& p_data)
 
 				  					break;
 
-			/* 	if(i==0)
-				{
-					if(p_gait[i]!=m_currentGait[i])
-					{
-						online_DoPID(0,p_data);
-					}
-				}
-
-				if(p_gait[i]!=m_currentGait[i])
-				{
-				//	rt_printf("driver %d: GAIT_ONLINE begin\n",i);
-					m_gaitState[i]=EGaitState::GAIT_RUN;
-					m_currentGait[i]=p_gait[i];
-					m_gaitStartTime[i]=p_data.time;
-
-					m_gaitCurrentIndex[i]=0;
-				    m_commandDataMapped[motorID].Position=(int)(350*65536*online_ideal_screw_pos[motorID]);
-
-
-				}
-				else
-				{
-
-					m_gaitCurrentIndex[i]=(int)(p_data.time-m_gaitStartTime[i]);
-					if(i==0)
-						rt_printf("m_currentIndex %d\n",m_gaitCurrentIndex[i]);
-
-				    m_commandDataMapped[motorID].Position=(int)(350*65536*online_ideal_screw_pos[motorID]);
-
-
-					if(m_gaitCurrentIndex[i]==Trot.m_gaitLength-1)
-					{
-						rt_printf("driver %d:GAIT_ONLINE will transfer to GAIT_STANDSTILL...\n",i);
-						p_gait[i]=GAIT_STANDSTILL;
-
-						m_standStillData[motorID].Position=m_feedbackDataMapped[motorID].Position;
-						m_standStillData[motorID].Velocity=m_feedbackDataMapped[motorID].Velocity;
-						m_standStillData[motorID].Torque=m_feedbackDataMapped[motorID].Torque;
-						m_gaitState[i]=EGaitState::GAIT_STOP;
-					}
-				}
-
-				break;*/
 
 
 			case GAIT_NULL:

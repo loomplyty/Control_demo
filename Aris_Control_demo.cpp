@@ -347,20 +347,21 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 
 	static int tg_count;
 	tg_count++;
-	if(tg_count%1000==000)
+	if(tg_count%10==000)
 	{
  		    msgSend.SetMsgID(RT_Data_Received);
 
-	    	msgSend.SetLength(sizeof(int)*18*5);
+	    	msgSend.SetLength(sizeof(int)*18*6);
 	    	//states , mode, pos, vel, current
 
 	    	for(int i=0;i<18;i++)
 	    	{
-	    		msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),i*5*sizeof(int));
-	    		msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),(i*5+1)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Position,sizeof(int),(i*5+2)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Velocity,sizeof(int),(i*5+3)*sizeof(int));
-		    	msgSend.CopyAt(&machineData.feedbackData[i].Torque,sizeof(int),(i*5+4)*sizeof(int));
+	    		msgSend.CopyAt(&machineData.motorsStates[i],sizeof(int),i*6*sizeof(int));
+	    		msgSend.CopyAt(&machineData.motorsModesDisplay[i],sizeof(int),(i*6+1)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Position,sizeof(int),(i*6+2)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Velocity,sizeof(int),(i*6+3)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.feedbackData[i].Torque,sizeof(int),(i*6+4)*sizeof(int));
+		    	msgSend.CopyAt(&machineData.commandData[i].Torque,sizeof(int),(i*6+5)*sizeof(int));
 	    	}
 
 		 //     rt_printf("ty give msg id %d data length %d \n",msgSend.GetMsgID(),msgSend.GetLength());
@@ -371,24 +372,6 @@ int tg(Aris::RT_CONTROL::CMachineData& machineData,Aris::Core::RT_MSG& msgRecv,A
 	}
 
 
-	const int MapAbsToPhy[18]=
-	{
-			10,	11,	9,
-			12,	14,	13,
-			17,	15,	16,
-			6,	8,	7,
-			3,	5,	4,
-			0,	2,	1
-	};
-	const int MapPhyToAbs[18]=
-	{
-			15,	17,	16,
-			12,	14,	13,
-			9,	11,	10,
-			2,	0,	1,
-			3,	5,	4,
-			7,	8,	6
-	};
 
  	int CommandID;
 
@@ -864,16 +847,26 @@ int OnGetControlCommand(Aris::Core::MSG &msg)
 
 int On_RT_DataReceived(Aris::Core::MSG &data)
 {
-	if(Is_CS_Connected==true)
+ 	if(Is_CS_Connected==true)
 	{
 	   // printf("Sending data to client,data length: %d\n",data.GetLength());
 		ControlSystem.SendData(data);
-	}
+	    int position,torque_feedback,torque_command;
+	    data.PasteAt(&position,sizeof(int),sizeof(int)*2);
+	    data.PasteAt(&torque_feedback,sizeof(int),sizeof(int)*4);
+	    data.PasteAt(&torque_command,sizeof(int),sizeof(int)*5);
+
+		file<<position<<"\t"<<torque_feedback<<"\t"<<torque_command<<endl;
+ 	}
 }
-//static int driverIDs[18]={0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17};
+
+
+ofstream file;
+
 
 int main(int argc, char** argv)
 {
+	file.open("log.txt");
 
     Aris::Core::RegisterMsgCallback(CS_Connected,On_CS_Connected);
     Aris::Core::RegisterMsgCallback(CS_CMD_Received,On_CS_CMD_Received);
@@ -953,6 +946,7 @@ int main(int argc, char** argv)
        // else
     	    // cout<<"IMU processing data failed !"<<endl;
 
+			file.close();
 	 return 0;
 
 };
